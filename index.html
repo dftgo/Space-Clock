@@ -127,7 +127,20 @@ planets.forEach(p => {
   p.sinN = Math.sin(p.node * DEG); p.cosN = Math.cos(p.node * DEG);
 });
 
-const PITCH = 0.45;      // camera looks down on the system at this angle (radians)
+// Asteroid belt between Mars and Jupiter: each rock has its own slightly tilted orbit
+const asteroids = Array.from({ length: 450 }, () => {
+  const inc = (4 + (Math.random() - 0.5) * 8) * DEG, node = Math.random() * Math.PI * 2;
+  const dist = 0.37 + Math.random() * 0.065;
+  return {
+    dist, phase: Math.random() * Math.PI * 2,
+    period: 48 * Math.pow(dist / 0.4, 1.5),   // inner rocks move faster
+    sinI: Math.sin(inc), cosI: Math.cos(inc), sinN: Math.sin(node), cosN: Math.cos(node),
+    size: 0.6 + Math.random() * 1.3,
+    shade: 120 + Math.floor(Math.random() * 90),
+  };
+});
+
+const PITCH = 0.45;     // camera looks down on the system at this angle (radians)
 const YAW_SPEED = 0.00003; // whole system slowly turns so the different planes are visible
 let yaw = 0;
 let stars = [], shooting = [], nebulae = [];
@@ -297,6 +310,12 @@ function drawPlanet(p, pos, t) {
   }
 }
 
+function drawAsteroid(a, pos) {
+  const s = Math.max(1, a.size * (scale / 500) * pos.f);
+  ctx.fillStyle = `rgba(${a.shade}, ${a.shade - 15}, ${a.shade - 35}, 0.85)`;
+  ctx.fillRect(pos.x - s / 2, pos.y - s / 2, s, s);
+}
+
 function drawRing(x, y, r, back) {
   ctx.save();
   ctx.strokeStyle = 'rgba(230, 210, 160, 0.65)';
@@ -318,9 +337,13 @@ function frame(t) {
   planets.forEach(drawOrbit);
   // draw far-to-near so planets pass correctly in front of / behind the sun
   const bodies = planets.map(p => ({ p, pos: planetPos(p, t) }));
+  for (const a of asteroids) bodies.push({ ast: a, pos: planetPos(a, t) });
   bodies.push({ sun: true, pos: { depth: 0 } });
-  bodies.sort((a, b) => b.pos.depth - a.pos.depth)
-        .forEach(o => o.sun ? drawSun(t) : drawPlanet(o.p, o.pos, t));
+  bodies.sort((a, b) => b.pos.depth - a.pos.depth).forEach(o => {
+    if (o.sun) drawSun(t);
+    else if (o.ast) drawAsteroid(o.ast, o.pos);
+    else drawPlanet(o.p, o.pos, t);
+  });
 
   requestAnimationFrame(frame);
 }
